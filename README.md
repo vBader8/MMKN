@@ -26,7 +26,10 @@
 ## التشغيل والنشر
 موقع ثابت بالكامل (HTML/CSS/JS بدون أي بناء):
 - محلياً: `python3 -m http.server` ثم افتح `http://localhost:8000`.
-- **Vercel**: استورد المستودع كمشروع جديد (Framework: Other، بدون أمر بناء) — سيُعطيك رابطاً مباشراً قابلاً للمشاركة.
+- **Cloudflare Pages (موصى به)**: Workers & Pages ← Create ← Pages ← Connect to Git ← مستودع MMKN، الفرع `claude/zen-davinci-pva65g`، Framework preset: None، Build command: `sh build.sh`، Build output directory: `public`. ستحصل على رابط `ifce-study.pages.dev` ويتحدث تلقائياً مع كل دفعة للمستودع.
+- **Cloudflare عبر سطر الأوامر**: `sh build.sh && npx wrangler deploy` (بعد `npx wrangler login`).
+- بعد النشر أضف الرابط في Supabase ← Authentication ← URL Configuration (Site URL و Redirect URLs) ليعمل تسجيل الدخول.
+- **Vercel**: استورد المستودع كمشروع جديد (Framework: Other، بدون أمر بناء).
 - يعمل على Chrome وSafari وEdge وFirefox والجوال.
 
 ## تنبيه
