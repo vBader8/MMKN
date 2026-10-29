@@ -35,6 +35,13 @@
     var t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
     clearTimeout(toast._t); toast._t = setTimeout(function () { t.classList.remove('show'); }, 2600);
   }
+  function ask(msg, okText, cb) {
+    var d = document.createElement('div'); d.className = 'search-layer'; d.style.alignItems = 'center';
+    d.innerHTML = '<div class="card" role="alertdialog" style="max-width:420px;width:100%"><p style="margin-top:0;font-weight:600">' + esc(msg) + '</p><div class="row" style="justify-content:flex-end"><button class="btn ghost sm" data-x="0">إلغاء</button><button class="btn sm" data-x="1">' + esc(okText) + '</button></div></div>';
+    document.body.appendChild(d);
+    d.addEventListener('click', function (e) { var b = e.target.closest('[data-x]'); if (e.target === d || b) { d.remove(); if (b && b.getAttribute('data-x') === '1') cb(); } });
+    d.querySelector('[data-x="1"]').focus();
+  }
   function fmtTime(s) { s = Math.max(0, Math.floor(s)); var m = Math.floor(s / 60), x = s % 60; return (m < 10 ? '0' : '') + m + ':' + (x < 10 ? '0' : '') + x; }
   function copy(text) {
     if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
@@ -558,8 +565,9 @@
   function scrollTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
   function endQuiz() {
     var S = Quiz.state(), left = S.ans.filter(function (x) { return x == null; }).length;
-    if (left && !confirm('لم تُجب على ' + left + ' سؤالاً. هل تريد الإنهاء وعرض النتيجة؟')) return;
-    Quiz.stopTick(); Quiz.finish(); renderResult(Quiz.state()); scrollTop();
+    function done() { Quiz.stopTick(); Quiz.finish(); renderResult(Quiz.state()); scrollTop(); }
+    if (left) return ask('لم تُجب على ' + left + ' سؤالاً. هل تريد الإنهاء وعرض النتيجة؟', 'إنهاء وعرض النتيجة', done);
+    done();
   }
 
   function renderResult(S) {
@@ -597,7 +605,7 @@
       '<div class="card" style="max-width:720px"><div class="field"><label for="fbName">الاسم (اختياري)</label><input id="fbName" class="input" value="' + esc(st.profile.name) + '"></div>' +
       '<div class="field"><label>نوع الرسالة</label><div class="pills" id="fbT"><button class="pill on" data-v="اقتراح">اقتراح</button><button class="pill" data-v="ملاحظة">ملاحظة</button><button class="pill" data-v="خطأ في سؤال أو شرح">خطأ في سؤال</button><button class="pill" data-v="استفسار">استفسار</button></div></div>' +
       '<div class="field"><label for="fbMsg">رسالتك</label><textarea id="fbMsg" class="input" placeholder="اكتب هنا… (إذا كان خطأً في سؤال، انسخ نص السؤال أو اذكر رقم الفصل)"></textarea></div>' +
-      '<div class="row"><button class="btn" id="fbSend">إرسال عبر تيليجرام</button><button class="btn ghost" id="fbCopy">نسخ الرسالة فقط</button></div>' +
+      '<div class="row"><a class="btn" id="fbSend" href="https://t.me/' + esc(TG) + '" target="_blank" rel="noopener">إرسال عبر تيليجرام</a><button class="btn ghost" id="fbCopy">نسخ الرسالة فقط</button></div>' +
       '<p class="muted" style="font-size:.85rem">عند الضغط على «إرسال» يتم نسخ رسالتك تلقائياً وفتح محادثة @' + esc(TG) + ' — الصقها واضغط إرسال.</p></div>');
     var type = 'اقتراح';
     pillGroup(main.querySelector('#fbT'), function (v) { type = v; });
@@ -607,11 +615,9 @@
       var nm = main.querySelector('#fbName').value.trim();
       return '📩 [' + type + '] منصة IFCE\n' + (nm ? 'الاسم: ' + nm + '\n' : '') + 'الرسالة: ' + m + '\nالصفحة: ' + location.href.split('#')[0];
     }
-    main.querySelector('#fbSend').onclick = function () {
-      var t = text(); if (!t) return;
-      var w = window.open('https://t.me/' + TG, '_blank', 'noopener');
-      copy(t).then(function () { toast('تم نسخ الرسالة ✓ الصقها في محادثة التيليجرام'); }, function () { toast('افتح المحادثة والصق رسالتك'); });
-      if (!w) location.href = 'https://t.me/' + TG;
+    main.querySelector('#fbSend').onclick = function (ev) {
+      var t = text(); if (!t) { ev.preventDefault(); return; }
+      copy(t).then(function () { toast('تم نسخ الرسالة ✓ الصقها في محادثة التيليجرام @' + TG); }, function () { toast('افتح المحادثة والصق رسالتك'); });
     };
     main.querySelector('#fbCopy').onclick = function () { var t = text(); if (t) copy(t).then(function () { toast('تم النسخ ✓'); }, function () { toast('تعذر النسخ، انسخ يدوياً'); }); };
   });
@@ -653,7 +659,7 @@
       var f = this.files[0]; if (!f) return; var r = new FileReader();
       r.onload = function () { try { Store.importCode(r.result); toast('تم دمج التقدم ✓'); render(); } catch (e) { toast('الملف غير صالح'); } }; r.readAsText(f);
     };
-    main.querySelector('#acReset').onclick = function () { if (confirm('هل أنت متأكد من حذف كل التقدم على هذا الجهاز؟')) { Store.reset(); Quiz.clear(); toast('تم الحذف'); render(); } };
+    main.querySelector('#acReset').onclick = function () { ask('هل أنت متأكد من حذف كل التقدم على هذا الجهاز؟', 'حذف التقدم', function () { Store.reset(); Quiz.clear(); toast('تم الحذف'); render(); }); };
     var bi = main.querySelector('#acIn'); if (bi) bi.onclick = function () { Store.Cloud.signIn().then(function () { toast('تم تسجيل الدخول ✓'); render(); }).catch(function (e) { toast('تعذر تسجيل الدخول'); Store.Cloud.error = e && e.message || ''; render(); }); };
     var bo = main.querySelector('#acOut'); if (bo) bo.onclick = function () { Store.Cloud.signOut().then(render); };
     var bs = main.querySelector('#acSync'); if (bs) bs.onclick = function () { Store.Cloud.pull(); toast('جارٍ المزامنة…'); };
