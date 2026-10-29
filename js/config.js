@@ -1,20 +1,13 @@
 /*
-  إعدادات المزامنة السحابية (اختيارية)
-  ---------------------------------------
-  لتفعيل تسجيل الدخول عبر Google ومزامنة التقدم بين الأجهزة:
-  1) أنشئ مشروعاً مجانياً على https://console.firebase.google.com
-  2) فعّل Authentication ← Sign-in method ← Google
-  3) فعّل Firestore Database (وضع الإنتاج) والصق قواعد الأمان الموجودة في ملف firestore.rules
-  4) من Project settings ← Your apps ← Web app انسخ القيم إلى الكائن أدناه
-  5) في Authentication ← Settings ← Authorized domains أضف نطاق موقعك (مثل your-site.vercel.app)
-  إذا بقيت القيم فارغة يعمل الموقع بالكامل محلياً (يحفظ التقدم في المتصفح)، مع إمكانية النقل عبر "رمز المزامنة".
+  إعدادات المزامنة السحابية — Supabase (مشروع ifce-study)
+  المفتاح هنا "publishable" عام بطبيعته ومحمي بسياسات RLS في قاعدة البيانات.
+  لتفعيل زر Google: من لوحة Supabase ← Authentication ← Sign In / Providers ← Google
+  (أدخل Client ID و Secret من Google Cloud)، ثم أضف رابط موقعك في URL Configuration ← Redirect URLs.
 */
 window.IFCE_CONFIG = {
-  firebase: {
-    apiKey: "",
-    authDomain: "",
-    projectId: "",
-    appId: ""
+  supabase: {
+    url: "https://xrfqqzzytrruengqkgsm.supabase.co",
+    key: "sb_publishable_bkG87hPhHZYn_kX9XQXXqw_L7DKsoub"
   },
   telegram: "B1Ver",
   author: "بدر خالد"

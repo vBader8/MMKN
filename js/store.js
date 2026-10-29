@@ -1,4 +1,4 @@
-/* إدارة التقدم: حفظ محلي + رمز مزامنة + مزامنة سحابية اختيارية (Firebase) */
+/* إدارة التقدم: حفظ محلي + رمز نقل يدوي + مزامنة سحابية عبر Supabase */
 (function () {
   var KEY = 'ifce4_progress';
   var listeners = [];
@@ -54,79 +54,144 @@
     state.updated = Date.now();
     safeSet(KEY, JSON.stringify(state));
     listeners.forEach(function (fn) { try { fn(state); } catch (e) {} });
-    if (!skipCloud && Cloud.user) {
+    if (!skipCloud && (Cloud.user || Cloud.syncKey)) {
       clearTimeout(syncTimer);
       syncTimer = setTimeout(Cloud.push, 1500);
     }
   }
 
-  /* ===== Cloud (Firebase, optional) ===== */
-  var Cloud = {
-    enabled: false, ready: false, user: null, error: '', status: 'local',
-    init: function () {
-      var cfg = (window.IFCE_CONFIG || {}).firebase || {};
-      if (!cfg.apiKey || !cfg.projectId) { Cloud.enabled = false; return Promise.resolve(false); }
-      Cloud.enabled = true;
-      var base = 'https://www.gstatic.com/firebasejs/10.12.2/';
-      return loadScript(base + 'firebase-app-compat.js')
-        .then(function () { return loadScript(base + 'firebase-auth-compat.js'); })
-        .then(function () { return loadScript(base + 'firebase-firestore-compat.js'); })
-        .then(function () {
-          if (!firebase.apps.length) firebase.initializeApp(cfg);
-          Cloud.ready = true;
-          firebase.auth().getRedirectResult().catch(function (e) { Cloud.error = e.message; });
-          firebase.auth().onAuthStateChanged(function (u) {
-            Cloud.user = u || null;
-            Cloud.status = u ? 'syncing' : 'local';
-            notify();
-            if (u) Cloud.pull();
-          });
-          return true;
-        })
-        .catch(function (e) { Cloud.error = 'تعذر تحميل خدمة المزامنة: ' + (e && e.message || e); Cloud.enabled = false; notify(); return false; });
-    },
-    signIn: function () {
-      if (!Cloud.ready) return Promise.reject(new Error('المزامنة السحابية غير مفعّلة'));
-      var p = new firebase.auth.GoogleAuthProvider();
-      return firebase.auth().signInWithPopup(p).catch(function (e) {
-        if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) {
-          return firebase.auth().signInWithRedirect(p);
-        }
-        throw e;
+  /* ===== Cloud (Supabase via REST) =====
+     1) تسجيل الدخول (Google أو رمز عبر البريد) ← جدول progress خاص بكل مستخدم
+     2) مفتاح مزامنة شخصي بدون تسجيل ← الدالتان sync_save / sync_load */
+  var SK = 'ifce4_session', KK = 'ifce4_synckey';
+  function cfg() { return (window.IFCE_CONFIG || {}).supabase || {}; }
+  function api(path, opt) {
+    opt = opt || {};
+    var h = { 'apikey': cfg().key, 'Content-Type': 'application/json' };
+    if (opt.auth && Cloud.session) h.Authorization = 'Bearer ' + Cloud.session.access_token;
+    for (var k in (opt.headers || {})) h[k] = opt.headers[k];
+    return fetch(cfg().url + path, { method: opt.method || 'GET', headers: h, body: opt.body ? JSON.stringify(opt.body) : undefined })
+      .catch(function () { throw new Error('تعذر الاتصال بخدمة المزامنة. تحقق من الإنترنت؛ تقدمك محفوظ على هذا الجهاز.'); })
+      .then(function (r) {
+        return r.text().then(function (t) {
+          var j = null; try { j = t ? JSON.parse(t) : null; } catch (e) {}
+          if (!r.ok) { var m = (j && (j.msg || j.message || j.error_description || j.error)) || ('HTTP ' + r.status); throw new Error(m); }
+          return j;
+        });
       });
+  }
+  function saveSession(sess) {
+    Cloud.session = sess || null;
+    if (sess) { sess.expires_at = sess.expires_at || Math.floor(Date.now() / 1000) + (sess.expires_in || 3600); safeSet(SK, JSON.stringify(sess)); }
+    else { try { localStorage.removeItem(SK); } catch (e) {} }
+  }
+  function fresh() {
+    var s = Cloud.session; if (!s) return Promise.resolve(null);
+    if (s.expires_at - 60 > Date.now() / 1000) return Promise.resolve(s);
+    return api('/auth/v1/token?grant_type=refresh_token', { method: 'POST', body: { refresh_token: s.refresh_token } })
+      .then(function (n) { saveSession(n); return n; })
+      .catch(function (e) { saveSession(null); Cloud.user = null; throw e; });
+  }
+  var Cloud = {
+    enabled: false, ready: false, user: null, session: null, error: '', status: 'local', syncKey: '',
+    init: function () {
+      var c = cfg();
+      if (!c.url || !c.key) return Promise.resolve(false);
+      Cloud.enabled = true;
+      Cloud.syncKey = safeGet(KK) || '';
+      // نتيجة تسجيل الدخول عبر Google تعود في الرابط: #access_token=...
+      var h = location.hash || '';
+      if (h.indexOf('access_token=') > -1) {
+        var q = {}; h.replace(/^#/, '').split('&').forEach(function (kv) { var a = kv.split('='); q[a[0]] = decodeURIComponent(a[1] || ''); });
+        saveSession({ access_token: q.access_token, refresh_token: q.refresh_token, expires_in: +q.expires_in || 3600 });
+        try { history.replaceState(null, '', location.pathname + location.search + '#/account'); } catch (e) { location.hash = '#/account'; }
+      } else if (h.indexOf('error_description=') > -1) {
+        Cloud.error = decodeURIComponent((h.match(/error_description=([^&]*)/) || [])[1] || '').replace(/\+/g, ' ');
+        try { history.replaceState(null, '', location.pathname + '#/account'); } catch (e) {}
+      } else {
+        try { Cloud.session = JSON.parse(safeGet(SK) || 'null'); } catch (e) { Cloud.session = null; }
+      }
+      Cloud.ready = true;
+      var jobs = [];
+      if (Cloud.session) jobs.push(fresh().then(function () { return api('/auth/v1/user', { auth: true }); })
+        .then(function (u) { Cloud.user = Cloud.mapUser(u); Cloud.status = 'syncing'; notify(); return Cloud.pull(); })
+        .catch(function (e) { Cloud.error = 'انتهت الجلسة، سجّل الدخول مجدداً'; saveSession(null); notify(); }));
+      if (Cloud.syncKey) jobs.push(Cloud.pullKey());
+      notify();
+      return Promise.all(jobs).then(function () { return true; });
     },
-    signOut: function () { return Cloud.ready ? firebase.auth().signOut() : Promise.resolve(); },
-    doc: function () { return firebase.firestore().collection('users').doc(Cloud.user.uid); },
+    mapUser: function (u) {
+      var m = (u && u.user_metadata) || {};
+      return { uid: u.id, email: u.email || '', displayName: m.full_name || m.name || '', photoURL: m.avatar_url || m.picture || '' };
+    },
+    signInGoogle: function () {
+      var back = location.origin + location.pathname;
+      location.href = cfg().url + '/auth/v1/authorize?provider=google&redirect_to=' + encodeURIComponent(back);
+    },
+    sendCode: function (email) {
+      return api('/auth/v1/otp', { method: 'POST', body: { email: email, create_user: true } });
+    },
+    verifyCode: function (email, code) {
+      return api('/auth/v1/verify', { method: 'POST', body: { type: 'email', email: email, token: String(code).trim() } })
+        .then(function (sess) { saveSession(sess); Cloud.user = Cloud.mapUser(sess.user); Cloud.error = ''; notify(); return Cloud.pull(); });
+    },
+    signOut: function () {
+      var p = Cloud.session ? api('/auth/v1/logout', { method: 'POST', auth: true }).catch(function () {}) : Promise.resolve();
+      return p.then(function () { saveSession(null); Cloud.user = null; Cloud.status = 'local'; notify(); });
+    },
+    signIn: function () { return Promise.resolve(Cloud.signInGoogle()); },
     pull: function () {
-      if (!Cloud.user) return;
-      Cloud.doc().get().then(function (snap) {
-        var remote = snap.exists ? (snap.data() || {}).progress : null;
-        if (remote) {
-          try { remote = JSON.parse(remote); } catch (e) { remote = null; }
-        }
-        state = merge(state, remote);
-        if (!state.profile.name && Cloud.user.displayName) state.profile.name = Cloud.user.displayName;
-        persist(true);
-        Cloud.push();
-      }).catch(function (e) { Cloud.error = e.message; Cloud.status = 'error'; notify(); });
+      if (!Cloud.user) return Promise.resolve();
+      return fresh().then(function () { return api('/rest/v1/progress?select=data&user_id=eq.' + Cloud.user.uid, { auth: true }); })
+        .then(function (rows) {
+          state = merge(state, rows && rows[0] ? rows[0].data : null);
+          if (!state.profile.name && Cloud.user.displayName) state.profile.name = Cloud.user.displayName;
+          persist(true);
+          return Cloud.push();
+        }).catch(function (e) { Cloud.error = e.message; Cloud.status = 'error'; notify(); });
     },
     push: function () {
-      if (!Cloud.user) return;
-      Cloud.doc().set({ progress: JSON.stringify(state), updated: Date.now() }, { merge: true })
-        .then(function () { Cloud.status = 'synced'; Cloud.error = ''; notify(); })
+      var jobs = [];
+      if (Cloud.user) jobs.push(fresh().then(function () {
+        return api('/rest/v1/progress?on_conflict=user_id', { method: 'POST', auth: true, headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+          body: { user_id: Cloud.user.uid, data: state, updated_at: new Date().toISOString() } });
+      }));
+      if (Cloud.syncKey) jobs.push(api('/rest/v1/rpc/sync_save', { method: 'POST', body: { p_key: Cloud.syncKey, p_data: state } }));
+      if (!jobs.length) return Promise.resolve();
+      return Promise.all(jobs).then(function () { Cloud.status = 'synced'; Cloud.error = ''; Cloud.lastSync = Date.now(); notify(); })
         .catch(function (e) { Cloud.error = e.message; Cloud.status = 'error'; notify(); });
+    },
+    newKey: function () {
+      var a = new Uint8Array(18); (window.crypto || window.msCrypto).getRandomValues(a);
+      var abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', k = '';
+      for (var i = 0; i < a.length; i++) k += abc[a[i] % abc.length];
+      k = k.match(/.{1,6}/g).join('-');
+      Cloud.syncKey = k; safeSet(KK, k);
+      return Cloud.push().then(function () { return k; });
+    },
+    useKey: function (k) {
+      k = String(k || '').trim().toUpperCase();
+      if (!/^[A-Z0-9]{6}(-[A-Z0-9]{6}){2}$/.test(k)) return Promise.reject(new Error('صيغة المفتاح غير صحيحة'));
+      Cloud.syncKey = k; safeSet(KK, k);
+      return Cloud.pullKey();
+    },
+    forgetKey: function () { Cloud.syncKey = ''; try { localStorage.removeItem(KK); } catch (e) {} notify(); },
+    pullKey: function () {
+      if (!Cloud.syncKey) return Promise.resolve();
+      Cloud.status = 'syncing'; notify();
+      return api('/rest/v1/rpc/sync_load', { method: 'POST', body: { p_key: Cloud.syncKey } })
+        .then(function (d) { state = merge(state, d); persist(true); return Cloud.push(); })
+        .catch(function (e) { Cloud.error = e.message; Cloud.status = 'error'; notify(); });
+    },
+    feedback: function (row) {
+      if (!Cloud.enabled) return Promise.reject(new Error('off'));
+      return fresh().catch(function () {}).then(function () {
+        return api('/rest/v1/feedback', { method: 'POST', auth: !!Cloud.session, headers: { Prefer: 'return=minimal' }, body: row });
+      });
     }
   };
 
   function notify() { listeners.forEach(function (fn) { try { fn(state); } catch (e) {} }); }
-
-  function loadScript(src) {
-    return new Promise(function (res, rej) {
-      var s = document.createElement('script');
-      s.src = src; s.async = true; s.onload = res; s.onerror = function () { rej(new Error(src)); };
-      document.head.appendChild(s);
-    });
-  }
 
   function b64e(str) { return btoa(unescape(encodeURIComponent(str))); }
   function b64d(str) { return decodeURIComponent(escape(atob(str))); }

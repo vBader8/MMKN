@@ -617,34 +617,49 @@
     }
     main.querySelector('#fbSend').onclick = function (ev) {
       var t = text(); if (!t) { ev.preventDefault(); return; }
+      saveFb();
       copy(t).then(function () { toast('تم نسخ الرسالة ✓ الصقها في محادثة التيليجرام @' + TG); }, function () { toast('افتح المحادثة والصق رسالتك'); });
     };
+    var saved = false;
+    function saveFb() {
+      if (saved) return; saved = true;
+      Store.Cloud.feedback({ kind: type, name: main.querySelector('#fbName').value.trim().slice(0, 80) || null, message: main.querySelector('#fbMsg').value.trim().slice(0, 4000), page: location.href.slice(0, 500) })
+        .then(function () { toast('وصلتنا رسالتك ✓ وتم نسخها لإرسالها على تيليجرام أيضاً'); }, function () { saved = false; });
+    }
     main.querySelector('#fbCopy').onclick = function () { var t = text(); if (t) copy(t).then(function () { toast('تم النسخ ✓'); }, function () { toast('تعذر النسخ، انسخ يدوياً'); }); };
   });
 
   /* ===== الحساب والمزامنة ===== */
   route('account', function () {
     var st = Store.get(), C = Store.Cloud, g = globalStats();
-    var cloudBox;
-    if (C.enabled && C.ready) {
+    var cloudBox, keyBox = '';
+    var stChip = '<span class="chip ' + (C.status === 'synced' ? 'ok' : C.status === 'error' ? 'bad' : 'w') + '">' + ({ synced: 'متزامن ✓', syncing: 'جارٍ المزامنة…', error: 'تعذرت المزامنة', local: 'محلي' }[C.status] || C.status) + '</span>';
+    var errP = C.error ? '<p class="muted" style="color:var(--err)">' + esc(C.error) + '</p>' : '';
+    var G = '<svg viewBox="0 0 24 24" style="stroke:none;fill:currentColor"><path d="M21.35 11.1H12v2.9h5.35c-.25 1.5-1.7 4.4-5.35 4.4-3.2 0-5.85-2.65-5.85-5.9S8.8 6.6 12 6.6c1.85 0 3.05.8 3.75 1.45l2.55-2.45C16.7 4.1 14.6 3.2 12 3.2 7.05 3.2 3.1 7.15 3.1 12.1S7.05 21 12 21c5.15 0 8.55-3.6 8.55-8.7 0-.6-.05-1.05-.2-1.2z"/></svg>';
+    if (C.enabled) {
       cloudBox = C.user
-        ? '<div class="row"><span class="avatar">' + (C.user.photoURL ? '<img src="' + esc(C.user.photoURL) + '" alt="">' : esc((C.user.displayName || '؟')[0])) + '</span><div><b>' + esc(C.user.displayName || '') + '</b><div class="muted" style="font-size:.85rem">' + esc(C.user.email || '') + '</div></div></div>' +
-          '<p>حالة المزامنة: <span class="chip ' + (C.status === 'synced' ? 'ok' : C.status === 'error' ? 'bad' : 'w') + '">' + ({ synced: 'متزامن ✓', syncing: 'جارٍ المزامنة…', error: 'خطأ' }[C.status] || C.status) + '</span></p>' +
-          (C.error ? '<p class="muted" style="color:var(--err)">' + esc(C.error) + '</p>' : '') +
+        ? '<div class="row"><span class="avatar">' + (C.user.photoURL ? '<img src="' + esc(C.user.photoURL) + '" alt="">' : esc((C.user.displayName || C.user.email || '؟')[0])) + '</span><div><b>' + esc(C.user.displayName || 'حسابك') + '</b><div class="muted" style="font-size:.85rem">' + esc(C.user.email) + '</div></div></div>' +
+          '<p>حالة المزامنة: ' + stChip + '</p>' + errP +
           '<div class="row"><button class="btn soft" id="acSync">مزامنة الآن</button><button class="btn ghost" id="acOut">تسجيل الخروج</button></div>'
-        : '<p>سجّل الدخول بحساب Google ليتزامن تقدمك تلقائياً بين جوالك وحاسوبك.</p><button class="btn" id="acIn"><svg viewBox="0 0 24 24" style="stroke:none;fill:currentColor"><path d="M21.35 11.1H12v2.9h5.35c-.25 1.5-1.7 4.4-5.35 4.4-3.2 0-5.85-2.65-5.85-5.9S8.8 6.6 12 6.6c1.85 0 3.05.8 3.75 1.45l2.55-2.45C16.7 4.1 14.6 3.2 12 3.2 7.05 3.2 3.1 7.15 3.1 12.1S7.05 21 12 21c5.15 0 8.55-3.6 8.55-8.7 0-.6-.05-1.05-.2-1.2z"/></svg> تسجيل الدخول عبر Google</button>' + (C.error ? '<p class="muted" style="color:var(--err)">' + esc(C.error) + '</p>' : '');
-    } else if (C.enabled && !C.ready) {
-      cloudBox = '<p class="muted">جارٍ تحميل خدمة تسجيل الدخول…</p>';
+        : '<p>سجّل الدخول ليتزامن تقدمك تلقائياً بين جوالك وحاسوبك.</p>' +
+          '<button class="btn" id="acIn">' + G + ' الدخول عبر Google</button>' +
+          '<div class="field" style="margin-top:14px"><label for="acEmail">أو الدخول برمز يصلك على البريد</label><input id="acEmail" class="input" type="email" dir="ltr" placeholder="name@example.com" autocomplete="email"></div>' +
+          '<div class="row"><button class="btn soft sm" id="acSend">أرسل الرمز</button></div>' +
+          '<div class="field" id="acCodeRow" style="margin-top:10px" hidden><label for="acOtp">الرمز المرسل إلى بريدك</label><input id="acOtp" class="input" inputmode="numeric" dir="ltr" maxlength="10" placeholder="123456"><button class="btn sm" id="acVerify" style="margin-top:8px">تأكيد الدخول</button></div>' + errP;
+      keyBox = '<div class="card"><h3>مفتاح المزامنة الشخصي (بدون تسجيل)</h3>' +
+        (C.syncKey
+          ? '<p>هذا الجهاز متزامن تلقائياً مع السحابة بالمفتاح:</p><p class="code-box" style="font-size:1.1rem;text-align:center;letter-spacing:2px" id="acKeyTxt">' + esc(C.syncKey) + '</p><p>الحالة: ' + stChip + '</p>' +
+            '<div class="row"><button class="btn soft sm" id="acKeyCopy">نسخ المفتاح</button><button class="btn ghost sm" id="acKeyOff">إيقاف على هذا الجهاز</button></div><p class="muted" style="font-size:.85rem">أدخل نفس المفتاح في جهازك الآخر ليبقى تقدمك واحداً على الجهازين. احتفظ به ولا تشاركه.</p>'
+          : '<p class="muted" style="font-size:.9rem">أنشئ مفتاحاً على هذا الجهاز، ثم أدخله في جهازك الآخر؛ بعدها يُحفظ تقدمك في السحابة ويتزامن تلقائياً.</p><button class="btn sm" id="acKeyNew">إنشاء مفتاح مزامنة</button>' +
+            '<div class="field" style="margin-top:12px"><label for="acKeyIn">لديك مفتاح؟ أدخله هنا</label><input id="acKeyIn" class="input" dir="ltr" placeholder="ABC123-DEF456-GHJ789" autocomplete="off"></div><button class="btn soft sm" id="acKeyUse">ربط هذا الجهاز</button>') + '</div>';
     } else {
-      cloudBox = '<p>يعمل الموقع الآن في <b>الوضع المحلي</b>: يُحفظ تقدمك تلقائياً في هذا المتصفح (حتى بعد إغلاقه). للانتقال لجهاز آخر استخدم <b>رمز المزامنة</b> بالأسفل.</p>' +
-        (C.error ? '<p class="muted" style="color:var(--err)">' + esc(C.error) + '</p>' : '') +
-        '<p class="muted" style="font-size:.85rem">تسجيل الدخول عبر Google يتفعّل بمجرد أن يضيف مدير الموقع إعدادات Firebase في ملف js/config.js.</p>';
+      cloudBox = '<p>يعمل الموقع في <b>الوضع المحلي</b>: يُحفظ تقدمك تلقائياً في هذا المتصفح. للانتقال لجهاز آخر استخدم <b>رمز المزامنة</b> بالأسفل.</p>' + errP;
     }
     html(crumbs([['الحساب والمزامنة']]) + '<h1>حسابي وتقدمي</h1><div class="grid g2">' +
       '<div class="card"><h3>الملف الشخصي</h3><div class="field"><label for="acName">اسمك (يظهر في الترحيب)</label><input id="acName" class="input" value="' + esc(st.profile.name) + '" maxlength="40"></div><button class="btn soft sm" id="acSave">حفظ الاسم</button>' +
       '<div style="margin-top:14px"><div class="kv"><span>أسئلة تمت محاولتها</span><b>' + g.seen + ' / ' + g.total + '</b></div><div class="kv"><span>دقة الإجابات</span><b>' + g.acc + '%</b></div><div class="kv"><span>دروس تم فهمها</span><b>' + g.lessons + ' / ' + g.lessonsTotal + '</b></div><div class="kv"><span>اختبارات محاكية</span><b>' + g.exams + '</b></div></div></div>' +
-      '<div class="card"><h3>تسجيل الدخول والمزامنة السحابية</h3>' + cloudBox + '</div>' +
-      '<div class="card"><h3>رمز المزامنة (نقل التقدم بين الأجهزة)</h3><p class="muted" style="font-size:.9rem">انسخ الرمز من هذا الجهاز، ثم الصقه في صفحة «حسابي» على الجهاز الآخر. يتم <b>دمج</b> التقدم دون حذف أي شيء.</p>' +
+      '<div class="card"><h3>تسجيل الدخول والمزامنة السحابية</h3>' + cloudBox + '</div>' + keyBox +
+      '<div class="card"><h3>رمز النقل اليدوي (يعمل بدون إنترنت)</h3><p class="muted" style="font-size:.9rem">انسخ الرمز من هذا الجهاز، ثم الصقه في صفحة «حسابي» على الجهاز الآخر. يتم <b>دمج</b> التقدم دون حذف أي شيء.</p>' +
       '<div class="row"><button class="btn soft sm" id="acCopy">نسخ رمز تقدمي</button><button class="btn ghost sm" id="acFile">تنزيل نسخة احتياطية</button></div>' +
       '<div class="field" style="margin-top:12px"><label for="acCode">لصق رمز من جهاز آخر</label><textarea id="acCode" class="input" style="min-height:80px;direction:ltr" placeholder="IFCE4:..."></textarea></div><div class="row"><button class="btn sm" id="acImp">دمج التقدم</button><label class="btn ghost sm" style="cursor:pointer">استيراد ملف<input type="file" id="acUp" accept=".txt,.json" hidden></label></div></div>' +
       '<div class="card"><h3>إعادة الضبط</h3><p class="muted">حذف كل تقدمك المحفوظ على هذا الجهاز (لا يمكن التراجع).</p><button class="btn ghost sm" id="acReset" style="color:var(--err)">حذف التقدم</button></div></div>');
@@ -660,9 +675,25 @@
       r.onload = function () { try { Store.importCode(r.result); toast('تم دمج التقدم ✓'); render(); } catch (e) { toast('الملف غير صالح'); } }; r.readAsText(f);
     };
     main.querySelector('#acReset').onclick = function () { ask('هل أنت متأكد من حذف كل التقدم على هذا الجهاز؟', 'حذف التقدم', function () { Store.reset(); Quiz.clear(); toast('تم الحذف'); render(); }); };
-    var bi = main.querySelector('#acIn'); if (bi) bi.onclick = function () { Store.Cloud.signIn().then(function () { toast('تم تسجيل الدخول ✓'); render(); }).catch(function (e) { toast('تعذر تسجيل الدخول'); Store.Cloud.error = e && e.message || ''; render(); }); };
-    var bo = main.querySelector('#acOut'); if (bo) bo.onclick = function () { Store.Cloud.signOut().then(render); };
-    var bs = main.querySelector('#acSync'); if (bs) bs.onclick = function () { Store.Cloud.pull(); toast('جارٍ المزامنة…'); };
+    function on(id, fn) { var el = main.querySelector('#' + id); if (el) el.onclick = fn; }
+    function fail(e) { toast(e && e.message ? e.message : 'حدث خطأ، حاول مجدداً'); }
+    on('acIn', function () { Store.Cloud.signInGoogle(); });
+    on('acSend', function () {
+      var em = main.querySelector('#acEmail').value.trim(); if (!/^\S+@\S+\.\S+$/.test(em)) return toast('اكتب بريداً صحيحاً');
+      this.disabled = true; var b = this;
+      Store.Cloud.sendCode(em).then(function () { main.querySelector('#acCodeRow').hidden = false; toast('تم إرسال الرمز إلى ' + em); main.querySelector('#acOtp').focus(); }, fail).then(function () { b.disabled = false; });
+    });
+    on('acVerify', function () {
+      var em = main.querySelector('#acEmail').value.trim(), code = main.querySelector('#acOtp').value.trim();
+      if (!code) return toast('اكتب الرمز');
+      Store.Cloud.verifyCode(em, code).then(function () { toast('تم تسجيل الدخول ✓'); render(); }, fail);
+    });
+    on('acOut', function () { Store.Cloud.signOut().then(render); });
+    on('acKeyNew', function () { Store.Cloud.newKey().then(function (k) { toast('تم إنشاء المفتاح ✓'); render(); }, fail); });
+    on('acKeyUse', function () { Store.Cloud.useKey(main.querySelector('#acKeyIn').value).then(function () { toast('تم ربط الجهاز ودمج التقدم ✓'); render(); }, fail); });
+    on('acKeyCopy', function () { copy(Store.Cloud.syncKey).then(function () { toast('تم نسخ المفتاح ✓'); }, function () { toast('انسخ المفتاح يدوياً'); }); });
+    on('acKeyOff', function () { ask('إيقاف المزامنة بالمفتاح على هذا الجهاز؟ يبقى تقدمك محفوظاً محلياً وفي السحابة.', 'إيقاف', function () { Store.Cloud.forgetKey(); render(); }); });
+    on('acSync', function () { Store.Cloud.pull(); toast('جارٍ المزامنة…'); });
   });
 
   route('more', function () {
