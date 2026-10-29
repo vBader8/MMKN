@@ -1,0 +1,11 @@
+{
+  "name": "منصة IFCE — شهادة أساسيات التأمين",
+  "short_name": "IFCE",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./#/",
+  "display": "standalone",
+  "background_color": "#0f3d91",
+  "theme_color": "#0f3d91",
+  "icons": [{ "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

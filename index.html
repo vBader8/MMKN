@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>منصة IFCE — شهادة أساسيات التأمين (الإصدار 4)</title>
+<meta name="description" content="منصة تفاعلية للمذاكرة لاختبار شهادة أساسيات التأمين IFCE الإصدار الرابع: ملخصات، خرائط ذهنية، أسئلة الامتحان الذاتي، أسئلة بين السطور، واختبار محاكي.">
+<meta name="theme-color" content="#0f3d91">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script>
+  /* تطبيق الوضع المحفوظ قبل الرسم لتجنب الوميض */
+  (function(){try{var t=localStorage.getItem('ifce4_theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+</script>
+</head>
+<body>
+<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="nav-arrows">
+      <button class="icon-btn" id="btnBack" title="الصفحة السابقة" aria-label="الصفحة السابقة">
+        <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+      <button class="icon-btn" id="btnFwd" title="الصفحة التالية" aria-label="الصفحة التالية">
+        <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+    </div>
+    <a href="#/" class="brand" aria-label="الرئيسية">
+      <img src="assets/icon.svg" alt="" width="34" height="34">
+      <span><b>IFCE</b><small>أساسيات التأمين • الإصدار 4</small></span>
+    </a>
+    <div class="top-actions">
+      <button class="icon-btn" id="btnSearch" title="بحث" aria-label="بحث">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      </button>
+      <button class="icon-btn" id="btnTheme" title="الوضع الداكن / الفاتح" aria-label="تبديل الوضع">
+        <svg class="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+      <a class="acct" href="#/account" id="acctBtn" title="الحساب والمزامنة">
+        <span class="avatar" id="acctAvatar">؟</span>
+      </a>
+    </div>
+  </div>
+  <nav class="tabs" aria-label="التنقل الرئيسي">
+    <a href="#/" data-nav="home">الرئيسية</a>
+    <a href="#/chapters" data-nav="chapters">الفصول</a>
+    <a href="#/maps" data-nav="maps">الخرائط الذهنية</a>
+    <a href="#/lines" data-nav="lines">بين السطور</a>
+    <a href="#/self" data-nav="self">الامتحان الذاتي</a>
+    <a href="#/exam" data-nav="exam">الاختبار المحاكي</a>
+    <a href="#/review" data-nav="review">مراجعة أخطائي</a>
+    <a href="#/feedback" data-nav="feedback">اقتراحات</a>
+  </nav>
+</header>
+
+<main id="main" tabindex="-1"></main>
+
+<nav class="bottombar" aria-label="تنقل سريع">
+  <a href="#/" data-nav="home"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg><span>الرئيسية</span></a>
+  <a href="#/chapters" data-nav="chapters"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2zM4 19V5"/></svg><span>الفصول</span></a>
+  <a href="#/lines" data-nav="lines"><svg viewBox="0 0 24 24"><path d="M9 9a3 3 0 115 2c-1 .7-2 1.3-2 3M12 18h.01"/><circle cx="12" cy="12" r="10"/></svg><span>بين السطور</span></a>
+  <a href="#/exam" data-nav="exam"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg><span>المحاكي</span></a>
+  <a href="#/more" data-nav="more"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg><span>المزيد</span></a>
+</nav>
+
+<div class="search-layer" id="searchLayer" hidden>
+  <div class="search-box" role="dialog" aria-label="البحث في المحتوى">
+    <input id="searchInput" type="search" placeholder="ابحث في الدروس والمصطلحات… مثال: الحلول، 10 ملايين، المادة 44" autocomplete="off">
+    <div id="searchResults" class="search-results"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<footer class="foot">
+  <p>© <span id="yr"></span> جميع الحقوق محفوظة — إعداد وتطوير <b>بدر خالد</b> • تيليجرام <a href="https://t.me/B1Ver" target="_blank" rel="noopener">@B1Ver</a></p>
+  <p class="muted">منصة تعليمية مستقلة للمذاكرة، تعتمد على النص الدراسي الرسمي IFCE الإصدار 4 (2025–2026). الملخصات والأسئلة بصياغة تعليمية لمساعدتك على الفهم، وليست بديلاً عن الكتاب.</p>
+</footer>
+
+<script src="js/config.js"></script>
+<script src="data/ch1.js"></script>
+<script src="data/ch2.js"></script>
+<script src="data/ch3.js"></script>
+<script src="data/ch4.js"></script>
+<script src="data/ch5.js"></script>
+<script src="data/ch6.js"></script>
+<script src="data/ch7.js"></script>
+<script src="data/ch8.js"></script>
+<script src="data/ch9.js"></script>
+<script src="data/ch10.js"></script>
+<script src="data/ch11.js"></script>
+<script src="data/extras.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
